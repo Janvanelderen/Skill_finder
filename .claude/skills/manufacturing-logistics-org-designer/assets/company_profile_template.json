@@ -1,0 +1,38 @@
+{
+  "company_name": "Example Manufacturing BV",
+  "sector": "food / industrial goods / ...",
+  "revenue_eur_m": 60,
+  "total_fte_known": null,
+  "production_strategy": "MTS",
+  "sites": 1,
+  "operating_days": 250,
+  "shifts_per_day": 2,
+  "production_lines": 4,
+  "operators_per_line_shift": 5,
+  "production_operators": null,
+  "active_skus": 1200,
+  "active_suppliers": 180,
+  "orders_per_day": 150,
+  "order_lines_per_day": 1500,
+  "inbound_pallets_per_day": 80,
+  "outbound_pallets_per_day": 120,
+  "trucks_per_day": 12,
+  "own_fleet_vehicles": 0,
+  "fleet_shifts": 1,
+  "warehouse_locations": 8000,
+  "automation_level": "manual",
+  "systems": {
+    "erp": true,
+    "wms": true,
+    "tms": false,
+    "mes": false,
+    "cmms": true,
+    "qms": false,
+    "crm": true,
+    "iot": false
+  },
+  "assumptions": [
+    "List every value above that was assumed rather than given by the user"
+  ],
+  "benchmarks": {}
+}

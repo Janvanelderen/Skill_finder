@@ -1,0 +1,44 @@
+{
+  "skill_name": "manufacturing-logistics-org-designer",
+  "evals": [
+    {
+      "id": 0,
+      "prompt": "We're a Dutch food producer (snacks), about €120m revenue, one plant in Tilburg with 6 production lines running 3 shifts, and our own DC next to it. ~2,500 SKUs, 300 suppliers, ~400 orders a day to retailers with ~6,000 order lines, 25 trucks leave per day, all outsourced carriers. We have SAP and a WMS, no TMS yet. Currently around 380 FTE. Design our organisation structure and the set of AI agents we should deploy, including their parameters.",
+      "expected_output": "Org chart, FTE per function reconciled with 380, RACI, agent catalogue with owners/autonomy/parameters, TMS-dependent agents flagged, roadmap",
+      "files": [],
+      "assertions": [
+        "Contains an org chart (Mermaid or equivalent tree) with reporting lines",
+        "Gives FTE per function as concrete numbers",
+        "Every agent has a named human owner role that exists in the org structure",
+        "Every agent has an explicit autonomy level",
+        "Agent parameters include numeric guardrails/thresholds (e.g. value cap, confidence threshold)",
+        "Agent parameters include model tier/temperature",
+        "Includes a RACI or decision-rights table",
+        "Includes a phased rollout roadmap with entry/exit criteria or KPIs",
+        "Labels assumptions explicitly",
+        "Reconciles calculated FTE with the stated ~380 FTE",
+        "Flags TMS-dependent agents (transport planning/freight audit) as blocked or later until a TMS exists"
+      ]
+    },
+    {
+      "id": 1,
+      "prompt": "voor een studentencase: bedenk een fictief productiebedrijf (metaalbewerking, make-to-order, ca. 80 fte) met focus op logistiek, en ontwerp de organisatiestructuur plus een set AI-agents met skills en parameters die de studenten kunnen gebruiken",
+      "expected_output": "Dutch output; explicit assumptions; small-company variant (merged roles); MTO-specific agents; agent cards with parameters",
+      "files": [],
+      "assertions": [
+        "Contains an org chart (Mermaid or equivalent tree) with reporting lines",
+        "Gives FTE per function as concrete numbers",
+        "Every agent has a named human owner role that exists in the org structure",
+        "Every agent has an explicit autonomy level",
+        "Agent parameters include numeric guardrails/thresholds (e.g. value cap, confidence threshold)",
+        "Agent parameters include model tier/temperature",
+        "Includes a RACI or decision-rights table",
+        "Includes a phased rollout roadmap with entry/exit criteria or KPIs",
+        "Labels assumptions explicitly",
+        "Written in Dutch",
+        "Uses a small-company variant (merged roles, e.g. combined planning/procurement) appropriate for ~80 FTE",
+        "Addresses make-to-order specifics (order engineering/quotation/project-based planning)"
+      ]
+    }
+  ]
+}
