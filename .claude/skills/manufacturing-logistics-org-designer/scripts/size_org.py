@@ -46,6 +46,12 @@ DEFAULT_BENCHMARKS = {
     "hr_pct": 0.015,
     "it_pct": 0.02,
     "commercial_fte_per_eur_m": 0.15,
+    "edi_workload_factor": 0.4,          # an EDI order costs ~40% of a manual order
+    "work_prep_fte_per_1000_orders_yr": 2.0,   # MTO/ETO order engineering + costing
+    "eto_extra_engineering_pct": 0.5,         # extra engineering load per 100% ETO share
+    "engineering_ci_fte_per_line": 0.8,
+    "food_hygiene_fte_per_line_shift": 0.7,
+    "food_qc_fte_per_shift": 2,
 }
 
 # agent id -> (name, owner role, start autonomy, required systems, min company FTE)
@@ -68,12 +74,33 @@ AGENTS = [
     ("master-data-steward", "Master Data Agent", "Master Data Specialist", "L2", ["erp"], 0),
     ("control-tower", "Supply Chain Control Tower", "Supply Chain Director", "L1", ["erp"], 250),
 ]
+MTO_AGENTS = [
+    ("quote-costing", "Quotation & Costing Agent", "Work Preparation Manager", "L1", ["erp"], 0),
+    ("work-preparation", "Work Preparation Agent", "Work Preparation Manager", "L2", ["erp"], 0),
+    ("ctp-promiser", "Capable-to-Promise Agent", "Planning Manager", "L1", ["erp"], 0),
+    ("subcontracting", "Subcontracting Agent", "Procurement Manager", "L2", ["erp"], 0),
+]
+OWNER_FALLBACK = {
+    "Warehouse Shift Manager": "Warehouse Manager",
+    "Inventory Controller": "Warehouse Manager",
+    "Master Data Specialist": "IT & Data Manager",
+    "Production Scheduler": "Planning Manager",
+    "Demand Planner": "Planning Manager",
+    "Supply Planner": "Planning Manager",
+}
 
 MODEL_TIER = {
     "sop-orchestrator": "large", "production-scheduler": "large", "control-tower": "large",
     "supply-planner": "large", "transport-planner": "large",
     "freight-auditor": "small", "inbound-coordinator": "small", "master-data-steward": "small",
     "replenishment": "small",
+}
+MODEL_TIER.update({"quote-costing": "large", "ctp-promiser": "large", "work-preparation": "medium", "subcontracting": "medium"})
+ENGINE = {
+    "production-scheduler": "solver/APS + LLM explanation", "transport-planner": "solver (routing/loads) + LLM",
+    "wave-planner": "solver + LLM", "ctp-promiser": "finite-capacity calc + LLM",
+    "demand-forecaster": "statistical/ML forecast + LLM exception notes", "maintenance-advisor": "ML (failure probability) + LLM",
+    "freight-auditor": "rules", "inbound-coordinator": "rules + LLM", "replenishment": "rules (min/max)",
 }
 TEMPERATURE = {"customer-service": 0.3, "quality-agent": 0.3, "sop-orchestrator": 0.2}
 
@@ -138,7 +165,11 @@ def size(profile: dict) -> dict:
 
     # Planning
     skus = g("active_skus", 0)
-    add("Planning", "Demand Planner", heads(skus / b["skus_per_demand_planner"], 1), f"{skus} SKUs", "Planning Manager")
+    strategy = g("production_strategy", "MTS").upper()
+    if strategy == "MTS":
+        add("Planning", "Demand Planner", heads(skus / b["skus_per_demand_planner"], 1), f"{skus} SKUs", "Planning Manager")
+    else:
+        add("Planning", "Demand Planner", 0.5, f"{strategy}: only raw materials/standard parts forecast", "Planning Manager")
     add("Planning", "Supply Planner", heads(skus / b["skus_per_supply_planner"], 1), f"{skus} SKUs", "Planning Manager")
     line_shifts = g("production_lines", 0) * shifts
     add("Planning", "Production Scheduler", heads(line_shifts / b["line_shifts_per_scheduler"], 1), f"{line_shifts} line-shifts", "Planning Manager")
@@ -151,7 +182,10 @@ def size(profile: dict) -> dict:
 
     # Customer service
     opd = g("orders_per_day", 0)
-    add("Customer Service", "Customer Service Agent (human)", heads(opd / b["orders_per_day_per_cs_fte"], 1), f"{opd} orders/day", "Customer Service Manager")
+    edi = g("edi_share", 0) or 0
+    eff = opd * ((1 - edi) + edi * b["edi_workload_factor"])
+    add("Customer Service", "Customer Service Agent (human)", heads(eff / b["orders_per_day_per_cs_fte"], 1),
+        f"{opd} orders/day, EDI share {int(edi*100)}%", "Customer Service Manager")
     add("Customer Service", "Customer Service Manager", 1, "", "Supply Chain Director")
 
     # Production
@@ -174,6 +208,23 @@ def size(profile: dict) -> dict:
     add("Quality & HSE", "QA/HSE Specialist", q, f"1 per {b['ops_fte_per_quality_fte']} ops FTE", "Quality & HSE Manager")
     add("Quality & HSE", "Quality & HSE Manager", 1, "", "Managing Director")
 
+    # Engineering & CI (all plants)
+    add("Engineering & CI", "Process/CI Engineer", heads(g("production_lines", 0) * b["engineering_ci_fte_per_line"], 1),
+        f"{b['engineering_ci_fte_per_line']} per line", "Plant Director")
+
+    # MTO/ETO: work preparation & costing between Sales and Production
+    if strategy in ("MTO", "ETO"):
+        orders_yr = g("orders_per_day", 0) * days
+        wp = orders_yr / 1000 * b["work_prep_fte_per_1000_orders_yr"] * (1 + b["eto_extra_engineering_pct"] * g("eto_share", 1.0 if strategy == "ETO" else 0.0))
+        add("Work Preparation", "Work Preparation / Costing Engineer", heads(wp, 1), f"{int(orders_yr)} orders/yr, {strategy}", "Work Preparation Manager")
+        add("Work Preparation", "Work Preparation Manager", 1, "owns quotation-to-release lead time", "Managing Director")
+
+    # Sector modules
+    if g("sector_module") == "food":
+        add("Production", "Hygiene / Sanitation Operator", heads(line_shifts * b["food_hygiene_fte_per_line_shift"]),
+            f"{b['food_hygiene_fte_per_line_shift']} per line-shift", "Production Manager")
+        add("Quality & HSE", "QC Lab / Line QC", heads(shifts * b["food_qc_fte_per_shift"]), f"{b['food_qc_fte_per_shift']} per shift", "Quality & HSE Manager")
+
     # Data
     add("IT & Data", "Master Data Specialist", heads(skus / b["skus_per_master_data_fte"], 0.5), f"{skus} SKUs", "IT & Data Manager")
 
@@ -191,11 +242,34 @@ def size(profile: dict) -> dict:
     add("Management", "Supply Chain Director", 1, "", "Managing Director")
     add("Management", "Plant Director", 1, "", "Managing Director")
 
+    # Small-company variant: one Supply Chain Manager instead of a director + 4-5 managers,
+    # and one Operations Manager instead of Plant Director + Production Manager.
+    size_ref = g("total_fte_known") or sum(r["fte"] for f in fn.values() for r in f["roles"])
+    if size_ref < b.get("small_company_fte", 150):
+        merged_sc = {"Supply Chain Director", "Planning Manager", "Procurement Manager",
+                     "Customer Service Manager", "Transport Manager", "Warehouse Manager"}
+        merged_ops = {"Plant Director", "Production Manager"}
+        for f in fn.values():
+            f["roles"] = [r for r in f["roles"] if r["role"] not in merged_sc | merged_ops]
+            for r in f["roles"]:
+                if r["reports_to"] in merged_sc:
+                    r["reports_to"] = "Supply Chain & Logistics Manager"
+                elif r["reports_to"] in merged_ops:
+                    r["reports_to"] = "Operations Manager"
+        fn["Management"]["roles"] += [
+            {"role": "Supply Chain & Logistics Manager", "fte": 1, "driver": f"small company (<{b.get('small_company_fte', 150)} FTE): merged SC management", "reports_to": "Managing Director"},
+            {"role": "Operations Manager", "fte": 1, "driver": "small company: plant + production management merged", "reports_to": "Managing Director"},
+        ]
+        fn = {k: v for k, v in fn.items() if v["roles"]}
+
     for f in fn.values():
         f["fte_total"] = r1(sum(r["fte"] for r in f["roles"]))
     total = r1(sum(f["fte_total"] for f in fn.values()))
 
     checks = []
+    if not g("production_operators") and "operators_per_line_shift" not in profile:
+        checks.append({"check": "production crewing", "calculated": ops, "known": None, "deviation_pct": None,
+                       "status": "ASSUMED 5 operators/line-shift: production is the biggest FTE driver, calibrate"})
     known = g("total_fte_known")
     if known:
         dev = (total - known) / known
@@ -207,10 +281,20 @@ def size(profile: dict) -> dict:
             "checks": checks, "assumptions": g("assumptions", []), "benchmarks_used": b}
 
 
-def agents(profile: dict, total_fte: float) -> list[dict]:
+def agents(profile: dict, sizing: dict) -> list[dict]:
     systems = profile.get("systems", {})
+    total_fte = profile.get("total_fte_known") or sizing["total_fte"]
+    roles = {r["role"] for f in sizing["functions"].values() for r in f["roles"] if r["fte"] > 0}
+    strategy = profile.get("production_strategy", "MTS").upper()
+    catalogue = AGENTS + (MTO_AGENTS if strategy in ("MTO", "ETO") else [])
     out = []
-    for aid, name, owner, level, req, min_fte in AGENTS:
+    for aid, name, owner, level, req, min_fte in catalogue:
+        if owner not in roles:
+            owner = OWNER_FALLBACK.get(owner, owner)
+            if owner not in roles:
+                owner = next((o for o in ("Supply Chain & Logistics Manager", "Supply Chain Director") if o in roles), owner)
+            if owner not in roles and "Operations Manager" in roles and aid in ("maintenance-advisor", "quality-agent"):
+                owner = "Operations Manager"
         missing = [s for s in req if not systems.get(s)]
         if total_fte < min_fte:
             status = f"later wave (recommended from ~{min_fte} FTE)"
@@ -220,7 +304,7 @@ def agents(profile: dict, total_fte: float) -> list[dict]:
             status = "recommended"
         out.append({
             "id": aid, "name": name, "owner": owner, "autonomy_level": level,
-            "status": status, "required_systems": req,
+            "status": status, "required_systems": req, "engine": ENGINE.get(aid, "LLM + rules"),
             "parameters": {
                 "model_tier": MODEL_TIER.get(aid, "medium"),
                 "temperature": TEMPERATURE.get(aid, 0.1),
@@ -258,7 +342,7 @@ def main():
     out.mkdir(parents=True, exist_ok=True)
 
     sizing = size(profile)
-    cat = agents(profile, sizing["total_fte"])
+    cat = agents(profile, sizing)
     (out / "org_sizing.json").write_text(json.dumps(sizing, indent=2, ensure_ascii=False))
     (out / "org_chart.mmd").write_text(mermaid(sizing))
     (out / "agent_catalogue.json").write_text(json.dumps(cat, indent=2, ensure_ascii=False))
@@ -267,7 +351,7 @@ def main():
     for name, f in sizing["functions"].items():
         print(f"  {name:<18} {f['fte_total']:>6}")
     for c in sizing["checks"]:
-        print(f"CHECK {c['check']}: {c['calculated']} vs {c['known']} ({c['deviation_pct']}%) -> {c['status']}")
+        print(f"CHECK {c['check']}: {c['calculated']} vs {c['known']} ({c['deviation_pct']}%) -> {c['status']}" if c['known'] else f"CHECK {c['check']}: {c['status']}")
     rec = [x["id"] for x in cat if x["status"] == "recommended"]
     print(f"Agents recommended now: {len(rec)} -> {', '.join(rec)}")
     print(f"Written to {out}/")

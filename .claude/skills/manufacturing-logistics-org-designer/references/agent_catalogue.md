@@ -22,6 +22,26 @@ Pick from this list based on the profile. Don't include an agent unless its data
 | `master-data-steward` | Master Data Agent | IT & Data (Data Steward) | L2 | Detects missing/inconsistent master data (dimensions, lead times, MOQ) and proposes fixes | ERP/WMS master data read |
 | `control-tower` | Supply Chain Control Tower | SC Director | L1 | Cross-functional exception feed: OTIF risks, stock-outs, late trucks; routes each to the right agent/owner | All read, event bus |
 
+### Added automatically for MTO/ETO (see `sector_modules.md`)
+
+| ID | Agent | Owner | Start autonomy | Core job | Needs |
+|---|---|---|---|---|---|
+| `quote-costing` | Quotation & Costing Agent | Work Preparation Manager | L1 | Routing/cost estimate from drawings and similar parts; price proposal with margin guard | ERP routings/costs, CAD |
+| `work-preparation` | Work Preparation Agent | Work Preparation Manager | L2 | Drafts BOM/routing/nesting for repeat and similar parts | ERP, CAD/CAM |
+| `ctp-promiser` | Capable-to-Promise Agent | Planning Manager | L1 | Delivery date from bottleneck capacity + material + subcontract lead times | ERP capacity, stock, supplier lead times |
+| `subcontracting` | Subcontracting Agent | Procurement Manager | L2 | Batches outsourced work, monitors return dates/completeness, scores subcontractors | ERP, email/portal |
+
+## Engine per agent
+
+| Engine | Use for | Examples |
+|---|---|---|
+| Solver / APS (MILP, constraint programming, heuristics) | Feasible optimised plans | production-scheduler, transport-planner (routes/loads), wave-planner |
+| Statistical / ML model | Forecasts and predictions | demand-forecaster, maintenance-advisor (failure probability) |
+| LLM | Orchestration, explanation, exception triage, documents and communication | sop-orchestrator, control-tower, customer-service, quote-costing (text/drawing intake) |
+| Rules | Deterministic checks | freight-auditor (rate match), inbound-coordinator (ASN check) |
+
+Most agents combine engines: the LLM calls the solver or model as a tool and explains the result. Put this in the card as `engine:`.
+
 ## Orchestration pattern
 
 Default: **hierarchical by planning horizon**

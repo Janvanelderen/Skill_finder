@@ -6,6 +6,7 @@ These ratios are **indicative starting values** from common logistics practice, 
 
 | Parameter | Default | Note |
 |---|---|---|
+| Operators per line-shift | 5 (profile default) | **Calibrate first**: food/packaging lines are often 6–10; CNC cells 1–3 |
 | Contract hours per FTE per year | 1,720 | NL full-time ≈ 38–40 h/week |
 | Productive hours per FTE per year | 1,450 | After holidays, sickness (~5%), training and breaks |
 | Operating days per year | 250 | 5-day operation; use 300+ for 6-day/continuous |
@@ -33,6 +34,13 @@ Add ~15% indirect warehouse time (replenishment, cycle counting, returns, housek
 | Driver (own fleet) | Vehicles × shifts | 1.2 FTE per vehicle per shift (covers leave) |
 | Inventory controller | Warehouse pallet locations | 1 FTE per 10,000 locations (min 0.5) |
 | Master-data specialist | Active SKUs | 1 FTE per 5,000 SKUs (min 0.5) |
+| Customer service with EDI | EDI share of orders | an EDI order counts as 0.4 of a manual order |
+| Work preparation & costing (MTO/ETO) | Orders per year | 2 FTE per 1,000 orders/yr, +50% × ETO share |
+| Process/CI engineer | Production lines | 0.8 FTE per line (min 1) |
+| Food: hygiene crew | Line-shifts | 0.7 FTE per line-shift |
+| Food: QC lab / line QC | Shifts | 2 FTE per shift |
+
+Small-company variant (< 150 FTE): one Supply Chain & Logistics Manager replaces the SC Director and the Planning/Procurement/CS/Transport/Warehouse managers; one Operations Manager replaces the Plant Director and Production Manager.
 
 ## Spans of control
 

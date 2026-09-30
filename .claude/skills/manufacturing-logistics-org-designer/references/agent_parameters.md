@@ -40,6 +40,7 @@ name: Procurement Agent
 function: Procurement
 owner: Procurement Manager            # must exist in the org chart
 autonomy_level: L2                    # target after pilot: L3
+engine: LLM + rules (ERP contract/price check)
 purpose: >
   Convert approved purchase requisitions into purchase orders with preferred
   suppliers, obtain confirmations and flag late deliveries.
